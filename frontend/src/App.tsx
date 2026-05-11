@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Terminal, Cpu, Shield, Send, Mic, Activity } from 'lucide-react';
+import { VersionedTransaction, Connection } from '@solana/web3.js';
+import { Buffer } from 'buffer';
 
 declare global {
   interface Window {
@@ -90,20 +92,50 @@ export default function App() {
       // Convert amount to base units (assuming 6 decimals for USDC)
       const amountInBaseUnits = Math.floor(intent.amount * 1_000_000);
 
-      const res = await fetch(
-        `https://api.jup.ag/swap/v2/order?inputMint=${USDC_MINT}&outputMint=${SOL_MINT}&amount=${amountInBaseUnits}&taker=${wallet}`
+      // 1. Get Quote
+      const quoteRes = await fetch(
+        `https://quote-api.jup.ag/v6/quote?inputMint=${USDC_MINT}&outputMint=${SOL_MINT}&amount=${amountInBaseUnits}&slippageBps=50`
       );
-      
-      if (!res.ok) throw new Error('Failed to get route from Jupiter API');
-      
-      const data = await res.json();
-      if (!data.transaction) throw new Error(data.message ?? 'No transaction data returned from Jupiter');
+      if (!quoteRes.ok) throw new Error('Failed to get route from Jupiter API');
+      const quoteResponse = await quoteRes.json();
 
-      setMessages(p => [...p, { role: 'agent', text: `Jupiter Swap V2 Transaction Built.\nPlease check your Phantom Wallet to sign the transaction.` }]);
+      // 2. Get Swap Transaction
+      setMessages(p => [...p, { role: 'agent', text: `Route found. Building transaction...` }]);
+      const swapRes = await fetch('https://quote-api.jup.ag/v6/swap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quoteResponse,
+          userPublicKey: wallet,
+          wrapAndUnwrapSol: true
+        })
+      });
       
-      const result = await window.solana.signAndSendTransaction({ message: data.transaction });
+      if (!swapRes.ok) throw new Error('Failed to build transaction');
+      const { swapTransaction } = await swapRes.json();
       
-      setMessages(p => [...p, { role: 'agent', text: `✅ SUCCESS!\nTransaction sent to network: ${result.signature.slice(0,20)}...` }]);
+      if (!swapTransaction) throw new Error('No transaction data returned from Jupiter');
+
+      setMessages(p => [...p, { role: 'agent', text: `Jupiter Swap V6 Transaction Built.\nPlease check your Phantom Wallet to sign the transaction.` }]);
+      
+      // Decode base64 transaction
+      const swapTransactionBuf = Uint8Array.from(atob(swapTransaction), c => c.charCodeAt(0));
+      const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+      
+      // Sign with Phantom
+      const signedTransaction = await window.solana.signTransaction(transaction);
+      
+      setMessages(p => [...p, { role: 'agent', text: `Transaction Signed. Sending to Solana network...` }]);
+
+      // Send to network
+      const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+      const rawTransaction = signedTransaction.serialize();
+      const txid = await connection.sendRawTransaction(rawTransaction, {
+        skipPreflight: true,
+        maxRetries: 2
+      });
+      
+      setMessages(p => [...p, { role: 'agent', text: `✅ SUCCESS!\nTransaction sent to network: ${txid.slice(0,20)}...` }]);
 
     } catch (err: any) {
       setMessages(p => [...p, { role: 'agent', text: `Execution Failed: ${err.message}` }]);

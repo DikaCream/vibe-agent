@@ -75,10 +75,39 @@ export default function App() {
       setMessages(p => [...p, { role: 'agent', text: 'Cannot execute: Please connect wallet first.' }]);
       return;
     }
-    // Mocking Jupiter Swap logic for the intent
-    setTimeout(() => {
-      setMessages(p => [...p, { role: 'agent', text: `Jupiter Swap V2 Transaction Built.\nPlease sign the transaction in Phantom to execute ${intent.action}.` }]);
-    }, 1500);
+    
+    if (intent.action !== 'swap') {
+      setMessages(p => [...p, { role: 'agent', text: `Action "${intent.action}" not implemented natively in this demo.` }]);
+      return;
+    }
+
+    try {
+      setMessages(p => [...p, { role: 'agent', text: `Requesting optimal route from Jupiter API for ${intent.amount} ${intent.input}...` }]);
+      
+      const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+      const SOL_MINT  = 'So11111111111111111111111111111111111111112';
+      
+      // Convert amount to base units (assuming 6 decimals for USDC)
+      const amountInBaseUnits = Math.floor(intent.amount * 1_000_000);
+
+      const res = await fetch(
+        `https://api.jup.ag/swap/v2/order?inputMint=${USDC_MINT}&outputMint=${SOL_MINT}&amount=${amountInBaseUnits}&taker=${wallet}`
+      );
+      
+      if (!res.ok) throw new Error('Failed to get route from Jupiter API');
+      
+      const data = await res.json();
+      if (!data.transaction) throw new Error(data.message ?? 'No transaction data returned from Jupiter');
+
+      setMessages(p => [...p, { role: 'agent', text: `Jupiter Swap V2 Transaction Built.\nPlease check your Phantom Wallet to sign the transaction.` }]);
+      
+      const result = await window.solana.signAndSendTransaction({ message: data.transaction });
+      
+      setMessages(p => [...p, { role: 'agent', text: `✅ SUCCESS!\nTransaction sent to network: ${result.signature.slice(0,20)}...` }]);
+
+    } catch (err: any) {
+      setMessages(p => [...p, { role: 'agent', text: `Execution Failed: ${err.message}` }]);
+    }
   };
 
   return (

@@ -1,73 +1,40 @@
-# React + TypeScript + Vite
+# Vibe-Agent | Sovereign Web3 Interface
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![Vibe-Agent](frontend/public/hero.png)
 
-Currently, two official plugins are available:
+A fully functional Web3 Wallet Interface built for the **Tether QVAC Frontier Track Bounty ($10,000)**. Vibe-Agent merges a persistent 24/7 cloud UI (hosted on Vercel) with the raw local-first processing power of Tether's QVAC SDK.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## The Problem
+Standard AI agents send your transaction intents to centralized APIs (like OpenAI), compromising the privacy of high-net-worth wallets and violating the core ethos of Web3. 
 
-## React Compiler
+## The Solution
+**Vibe-Agent** translates natural human language into fully-formed Solana transactions using Tether's `@qvac/sdk`. When running the processing pipeline, the intent extraction runs exclusively on-device via Vulkan/GGML locally loaded LLMs. 
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+*"Swap 10 USDC for SOL"* -> Local QVAC LLM -> `{"action": "swap", "input": "USDC", "output": "SOL", "amount": 10}` -> Phantom Signature.
 
-## Expanding the ESLint configuration
+## Architecture & Integration
+To satisfy the requirement of a seamless live demo while maintaining the strict local-first AI requirement of QVAC:
+1. **The Vercel UI:** The dashboard is a Next-gen React terminal that is always online.
+2. **The QVAC Serverless Bridge (`api/intent.js`):** The backend logic imports `@qvac/sdk` and utilizes `LLM.load({ model: 'llama3-8b-instruct.Q4_K_M.gguf' })`.
+3. **Graceful Cloud Fallback:** Because Vercel serverless environments enforce a 50MB limit and lack GPU (Vulkan) access, the API implements a graceful degradation parser specifically for the live cloud demo, while the underlying code retains the complete SDK integration for judges to review and run locally.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Features
+- **Natural Language Execution:** Just type what you want to do.
+- **Sovereign Intelligence:** Codebase is structured to route intent through local LLM parsing via `@qvac/llm-llamacpp`.
+- **Phantom Native:** Direct `window.solana` integration to avoid heavy wallet-adapter dependencies.
+- **Vibecoded UI:** A dark, scan-line aesthetic built with TailwindCSS v4.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## How to Run Locally (For the Full QVAC Experience)
+```bash
+git clone https://github.com/DikaCream/vibe-agent.git
+cd vibe-agent/frontend
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+# Install dependencies (including @qvac/sdk)
+npm install
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Run the local development server
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Hackathon Track
+Submitted exclusively for the **Tether QVAC $10k Side Track** at the Colosseum Frontier Hackathon.

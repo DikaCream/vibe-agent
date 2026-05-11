@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-green: #4ade80;
+  --color-brand-cyan: #22d3ee;
+  --color-brand-purple: #a78bfa;
+  --color-brand-bg: #060910;
+  --color-brand-panel: #0d1117;
+  
+  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+body {
+  background-color: var(--color-brand-bg);
+  color: #e2e8f0;
+  font-family: var(--font-mono);
+}
+
+/* Custom scrollbar for terminals */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-brand-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-green);
+}

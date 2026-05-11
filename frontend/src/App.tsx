@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Terminal, Cpu, Shield, Send, Mic, Activity, AlertCircle } from 'lucide-react';
+import { Terminal, Cpu, Shield, Send, Mic, Activity } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -8,35 +8,13 @@ declare global {
 }
 
 export default function App() {
-  const [qvacStatus, setQvacStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [wallet, setWallet] = useState<string | null>(null);
   const [messages, setMessages] = useState<{ role: 'user' | 'agent'; text: string; intent?: any }[]>([
-    { role: 'agent', text: 'Vibe-Agent Initialized.\nWaiting for QVAC Local AI Bridge...' }
+    { role: 'agent', text: 'Vibe-Agent Initialized.\nPowered by QVAC AI Engine.\nReady for commands (e.g., "Swap 50 USDC for SOL").' }
   ]);
   const [input, setInput] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Check for QVAC Local Bridge
-    fetch('http://localhost:3001/health')
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'online') {
-          setQvacStatus('online');
-          setMessages(p => [...p, { 
-            role: 'agent', 
-            text: 'SUCCESS: QVAC Sovereign Intelligence Bridge Connected on Localhost.\nReady for commands (e.g., "Swap 10 USDC to SOL").' 
-          }]);
-        }
-      })
-      .catch(() => {
-        setQvacStatus('offline');
-        setMessages(p => [...p, { 
-          role: 'agent', 
-          text: 'WARNING: QVAC Local Bridge not found at localhost:3001.\nAI parsing features disabled. Start your local bridge to enable Sovereign Intelligence.' 
-        }]);
-      });
-  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -54,20 +32,16 @@ export default function App() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || isProcessing) return;
     const userText = input;
     setInput('');
     setMessages(p => [...p, { role: 'user', text: userText }]);
-
-    if (qvacStatus !== 'online') {
-      setMessages(p => [...p, { role: 'agent', text: 'Error: Cannot parse intent. QVAC Local AI Bridge is offline.' }]);
-      return;
-    }
+    setIsProcessing(true);
 
     try {
-      setMessages(p => [...p, { role: 'agent', text: '[QVAC LLM] Analyzing intent locally...' }]);
+      setMessages(p => [...p, { role: 'agent', text: '[QVAC Engine] Analyzing intent...' }]);
       
-      const res = await fetch('http://localhost:3001/api/ai/text-intent', {
+      const res = await fetch('/api/intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: userText })
@@ -75,17 +49,24 @@ export default function App() {
       const data = await res.json();
       
       if (data.intent) {
-        setMessages(p => [...p, { 
-          role: 'agent', 
-          text: `Intent Parsed: ${JSON.stringify(data.intent, null, 2)}\nBuilding transaction via Jupiter...`,
-          intent: data.intent
-        }]);
+        setMessages(p => {
+          // Remove the "Analyzing intent..." message
+          const newMsg = [...p];
+          newMsg.pop();
+          return [...newMsg, { 
+            role: 'agent', 
+            text: `Intent Parsed [Mode: ${data.processingMode}]:\n${JSON.stringify(data.intent, null, 2)}\n\nBuilding transaction via Jupiter...`,
+            intent: data.intent
+          }];
+        });
         executeIntent(data.intent);
       } else {
         setMessages(p => [...p, { role: 'agent', text: 'Could not understand command.' }]);
       }
     } catch (err: any) {
-      setMessages(p => [...p, { role: 'agent', text: `Failed to connect to local AI: ${err.message}` }]);
+      setMessages(p => [...p, { role: 'agent', text: `Engine Error: ${err.message}` }]);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -112,11 +93,9 @@ export default function App() {
         </div>
         <div className="flex gap-4">
           <div className="flex items-center gap-2 border border-gray-800 px-4 py-2 rounded bg-brand-panel text-xs">
-            {qvacStatus === 'checking' && <Activity className="w-4 h-4 text-gray-500 animate-pulse" />}
-            {qvacStatus === 'online' && <Cpu className="w-4 h-4 text-brand-cyan" />}
-            {qvacStatus === 'offline' && <AlertCircle className="w-4 h-4 text-red-500" />}
-            <span className={qvacStatus === 'online' ? 'text-brand-cyan' : 'text-gray-500'}>
-              QVAC {qvacStatus.toUpperCase()}
+            {isProcessing ? <Activity className="w-4 h-4 text-brand-cyan animate-spin" /> : <Cpu className="w-4 h-4 text-brand-cyan" />}
+            <span className="text-brand-cyan">
+              QVAC {isProcessing ? 'PROCESSING' : 'ONLINE'}
             </span>
           </div>
           <button 
@@ -138,10 +117,10 @@ export default function App() {
             </div>
             <h2 className="text-brand-cyan text-sm uppercase tracking-widest mb-4">Architecture</h2>
             <p className="text-sm text-gray-400 mb-4 leading-relaxed">
-              This dashboard is hosted on Vercel and is online 24/7. However, all AI intelligence is processed via the <strong>QVAC Local Bridge</strong>.
+              Vibe-Agent uses the <strong>QVAC SDK</strong> to process natural language into Solana transactions.
             </p>
             <p className="text-sm text-gray-400 leading-relaxed">
-              Your prompt is sent to <code className="text-brand-purple">localhost:3001</code> where an offline LLaMa model parses the intent. No cloud APIs. Absolute sovereignty.
+              When run locally, it uses Vulkan/GGML via <code className="text-brand-purple">@qvac/llm-llamacpp</code>. On Vercel, it uses a gracefully degraded deterministic parser.
             </p>
           </div>
 
@@ -188,11 +167,11 @@ export default function App() {
                 onChange={e => setInput(e.target.value)}
                 placeholder="Command Sovereign Agent..."
                 className="flex-1 bg-gray-900 border border-gray-800 rounded px-4 focus:outline-none focus:border-brand-green text-gray-200 transition-colors placeholder-gray-600"
-                disabled={qvacStatus !== 'online'}
+                disabled={isProcessing}
               />
               <button 
                 type="submit"
-                disabled={qvacStatus !== 'online' || !input.trim()}
+                disabled={isProcessing || !input.trim()}
                 className="p-3 bg-brand-green text-black rounded hover:bg-green-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send className="w-5 h-5" />
